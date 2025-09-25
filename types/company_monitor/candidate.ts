@@ -17,6 +17,7 @@ export interface Candidate {
   skills_current: string[];           // ["HTML5", "FW", "AWS"]
   skills_past: string[];              // []
   isBookmarked?: boolean;              // false
+  last_process: string[];             // ["최종합격", "불합격", ...]
 }
 
 export interface legacy_Candidate {

@@ -27,14 +27,38 @@ import type { Candidate } from "@/types/company_monitor/candidate"
 interface CandidateCardProps {
   candidate: Candidate
   onToggleBookmark?: (candidateId: string) => void
+  unique_company_post_ref: { posting_id: string; posting_title_s: string }[]
 }
 
-export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProps) {
+
+function sgSort(
+  c: string[] = [],
+  cl: (number | string)[] = [],
+  p: string[] = [],
+  pl: (number | string)[] = []
+): { techStack: string; curLevel: number; growth: number }[] {
+  const pm = new Map<string, number>();
+  for (let i = 0; i < p.length; i++) pm.set(p[i], Number(pl[i] ?? 0));
+
+  const o: Record<string, { techStack: string; curLevel: number; growth: number }> = {};
+  for (let i = 0; i < c.length; i++) {
+    const n = c[i];
+    if (!n) continue;
+    const cur = Number(cl[i] ?? 0);
+    const g = pm.size ? (pm.has(n) ? cur - (pm.get(n) as number) : 0) : 0;
+    o[n] = { techStack: n, curLevel: cur, growth: g }; // 같은 스킬명은 마지막 값으로 덮어씀
+  }
+
+  return Object.values(o).sort(
+    (a, b) => (b.growth - a.growth) || a.techStack.localeCompare(b.techStack)
+  );
+}
+
+
+export function CandidateCard({ candidate, onToggleBookmark, unique_company_post_ref }: CandidateCardProps) {
   const [showSkillAnalysis, setShowSkillAnalysis] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showOfferPopup, setShowOfferPopup] = useState(false)
-
-  const skills = candidate.skills_past || candidate.skfn_current || []
 
   const handleViewProfile = () => {
     setShowProfileModal(true)
@@ -54,12 +78,31 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
     }, 2000)
   }
 
-  const maxCount = Math.min(candidate.skills_current.length, 5)
-  const sum = candidate.skfn_current
-    .slice(0, maxCount)
-    .reduce((acc, cur) => acc + Number(cur), 0);
-  const avg = Math.round((sum / maxCount) * 100) / 100;
+  // 기술 스택 보여주기 위한 정보 처리
+  const skills_current: string[] = candidate.skills_current || []
+  const skills_current_level: number[] = (candidate.skfn_current || []).map(Number)
+  const skills_past: string[] = candidate.skills_past || []
+  const skills_past_level: number[] = (candidate.skfn_past || []).map(Number)
+  const sortedSkillGrowth: { techStack: string; curLevel: number; growth: number; }[] = sgSort(skills_current, skills_current_level, skills_past, skills_past_level)
+  console.log("data", "sortedSkillGrowth", sortedSkillGrowth)
+
+  // 기술 스택 평균 계산
+  const maxCount = Math.min(sortedSkillGrowth.length, 100)
+  const sum = sortedSkillGrowth.reduce((acc, { growth }) => acc + growth, 0);
+  const avg = Math.round((sum * 100 / maxCount)) / 100;
+  
+  // 자사 공고에 지원한 이력만 필터링
   const posting_id_all = candidate.posting_id_all.split(";")
+  const last_process = candidate.last_process || []
+  const items = posting_id_all.map((id: string, i: number) => ({
+    id,
+    status: last_process[i] as string | undefined,
+  }));
+  const filtered = items.flatMap(it => {
+    const ref = unique_company_post_ref.find(r => String(r.posting_id) === String(it.id));
+    return ref ? [{ title: ref.posting_title_s, status: it.status ?? "" }] : [];
+  });
+
 
   return (
     <>
@@ -81,7 +124,7 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
             {/* Profile Section */}
             <div className="col-span-3 flex flex-col items-center">
               <Avatar className="h-20 w-20 mb-3">
-                <AvatarImage src={candidate.avatar || candidate.photo || "/placeholder.svg"} alt={candidate.employee_name} />
+                <AvatarImage src={candidate.avatar || candidate.photo || "/placeholder-user.jpg"} alt={candidate.employee_name} />
                 <AvatarFallback className="text-lg">
                   {candidate.employee_name
                     .split(" ")
@@ -127,24 +170,21 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
               )}
             </div>
 
+            {/* 기술 스택 & 숙련도 계산하는 공간 */}
             {/* Skills & Growth Section */}
             <div className="col-span-3 space-y-3">
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-700 border-b border-gray-200 pb-1">기술 스택 & 숙련도</h4>
                 <div className="space-y-2">
                   
-                  {candidate.skfn_current?.slice(0, maxCount).map((skfn, idx) => {
-                    // const proficiencyPercentage = Math.round((Number(skfn) / 10) * 100)
-                    const proficiencyPercentage = Number(skfn)
-                    const growthRate = Number(skfn)
-
+                  {sortedSkillGrowth?.slice(0, maxCount).map((data, idx) => {
                     return (
-                      <div key={candidate.skills_current[idx]} className="space-y-1">
+                      <div key={data.techStack} className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-700">{candidate.skills_current[idx]}</span>
+                          <span className="text-xs font-medium text-gray-700">{data.techStack}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600">{proficiencyPercentage}%</span>
-                            <span className="text-xs text-green-600 font-medium">+{growthRate}%</span>
+                            <span className="text-xs text-gray-600">{data.curLevel}%</span>
+                            <span className="text-xs text-green-600 font-medium">+{data.growth}%p</span>
                           </div>
                         </div>
                       </div>
@@ -152,14 +192,14 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
                   }) || (
                     // Fallback for candidates without detailed proficiency data
                     <div className="flex flex-wrap gap-1.5">
-                      {skills.slice(0, 6).map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-xs">
-                          {skill}
+                      {sortedSkillGrowth.slice(0, 6).map((data) => (
+                        <Badge key={data.techStack} variant="secondary" className="text-xs">
+                          {data.techStack}
                         </Badge>
                       ))}
-                      {skills.length > 6 && (
+                      {sortedSkillGrowth.length > 6 && (
                         <Badge variant="outline" className="text-xs">
-                          +{skills.length - 6}
+                          +{sortedSkillGrowth.length - 6}
                         </Badge>
                       )}
                     </div>
@@ -169,7 +209,7 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
 
               <div className="flex items-center gap-2 text-sm">
                 <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-green-600 font-medium">평균 {avg || 0}% 성장률</span>
+                <span className="text-green-600 font-medium">평균 {avg || 0}%p 성장률</span>
               </div>
             </div>
 
@@ -182,6 +222,7 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
                   className="flex items-center gap-1 bg-transparent w-full justify-start text-xs"
                   onMouseEnter={() => setShowSkillAnalysis(true)}
                   onMouseLeave={() => setShowSkillAnalysis(false)}
+                  // onClick={() => setShowSkillAnalysis(v => !v)}
                 >
                   <BarChart3 className="h-3 w-3" />
                   분석
@@ -222,7 +263,7 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
           </div>
 
           {/* Previous Applications Section - Full Width */}
-          {posting_id_all && posting_id_all.length > 0 && (
+          {filtered && filtered.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex items-start gap-3">
                 <div className="flex items-center gap-1 shrink-0">
@@ -230,24 +271,25 @@ export function CandidateCard({ candidate, onToggleBookmark }: CandidateCardProp
                   <span className="text-sm font-medium text-gray-700">이전 지원 내역</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {posting_id_all.slice(0, 4).map((app, index) => (
+                  {filtered.slice(0, 4).map((f, index) => (
                     <div key={index} className="flex items-center gap-1">
                       <Badge variant="outline" className="text-xs">
-                        {app}
+                        {f.title}
                       </Badge>
                       <Badge
                         variant={
-                          app === "최종합격" ? "default" : app === "불합격" ? "destructive" : "secondary"
+                          f.status === "최종합격" ? "default" :
+                          f.status === "불합격" ? "destructive" : "secondary"
                         }
                         className="text-xs px-1.5 py-0.5"
                       >
-                        {app}
+                        {f.status + " 탈락"}
                       </Badge>
                     </div>
                   ))}
-                  {posting_id_all.length > 4 && (
+                  {filtered.length > 4 && (
                     <Badge variant="outline" className="text-xs">
-                      +{posting_id_all.length - 4} more
+                      +{filtered.length - 4} more
                     </Badge>
                   )}
                 </div>

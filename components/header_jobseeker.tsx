@@ -407,7 +407,7 @@ export function Header_jobseeker() {
               >
                 <a
                   className="sc-f154264c-5 drbbjg"
-                  href="/employee_roadmap"
+                  href="/employee_skillfit"
                   style={{
                     textDecoration: "none",
                     color: "rgb(0, 0, 0)",

@@ -77,7 +77,7 @@ export default function HomePage() {
       />
 
       <div className="flex-1 flex flex-col">
-        <div className="mx-auto max-w-7xl p-6 w-full">
+        <div className="container mx-auto px-55 py-8 space-y-8">
           <div className="mb-6">
             <FilterSidebar
               onFilterChange={updateFilter}
@@ -98,7 +98,7 @@ export default function HomePage() {
             )}
 
             {!hasMore && filteredAndSortedCandidates.length > 0 && (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-20 text-muted-foreground">
                 모든 지원자를 확인했습니다 ({filteredAndSortedCandidates.length}명)
               </div>
             )}

@@ -153,9 +153,9 @@ export function useCandidateFiltering(candidates: Candidate[], filters: FilterSt
       result = result.filter((candidate) => {
         return filters.previousApplications.some((filter) => {
           if (filter === "있음") {
-            return candidate.previousApplications && candidate.previousApplications.length > 0
+            return candidate.last_process && candidate.last_process.length > 0
           } else if (filter === "없음") {
-            return !candidate.previousApplications || candidate.previousApplications.length === 0
+            return !candidate.last_process || candidate.last_process.length === 0
           }
           return true
         })
@@ -164,7 +164,31 @@ export function useCandidateFiltering(candidates: Candidate[], filters: FilterSt
 
     console.log("data", "filters: hooks>use-candidate-filtering", filters)
     // 정렬 필터: sortBy
-    const Sum = (arr: string[]): number => arr.reduce((a, b) => parseInt(a) + parseInt(b), 0)
+    function score(candidate: Candidate) {
+      const c: string[] = candidate.skills_current || []
+      const cl: number[] = (candidate.skfn_current || []).map(Number)
+      const p: string[] = candidate.skills_past || []
+      const pl: number[] = (candidate.skfn_past || []).map(Number)
+      const pm = new Map<string, number>();
+      for (let i = 0; i < p.length; i++) pm.set(p[i], Number(pl[i] ?? 0));
+    
+      const o: Record<string, { techStack: string; curLevel: number; growth: number }> = {};
+      for (let i = 0; i < c.length; i++) {
+        const n = c[i];
+        if (!n) continue;
+        const cur = Number(cl[i] ?? 0);
+        const g = pm.size ? (pm.has(n) ? cur - (pm.get(n) as number) : 0) : 0;
+        o[n] = { techStack: n, curLevel: cur, growth: g }; // 같은 스킬명은 마지막 값으로 덮어씀
+      }
+    
+      const sorted = Object.values(o).sort(
+        (a, b) => (b.growth - a.growth) || a.techStack.localeCompare(b.techStack)
+      );
+      const maxCount = Math.min(sorted.length, 100)
+      const sum = sorted.reduce((acc, { growth }) => acc + growth, 0);
+      const avg = Math.round((sum * 100 / maxCount)) / 100;
+      return avg
+    }
     const ppCareer = (career: string): number => {
       if (!career) return 0
       if (career === "신입") return 0
@@ -176,10 +200,10 @@ export function useCandidateFiltering(candidates: Candidate[], filters: FilterSt
     const sortKey = Array.isArray(filters.sortBy) ? filters.sortBy[0] : filters.sortBy || "성장률 (높은순)"
     switch (sortKey) {
       case "성장률 (높은순)":
-        result.sort((a, b) => (Sum(b.skfn_current) ?? -Infinity) - (Sum(a.skfn_current) ?? -Infinity))
+        result.sort((a, b) => (score(b) ?? -Infinity) - (score(a) ?? -Infinity))
         break
       case "성장률 (낮은순)":
-        result.sort((a, b) => (Sum(a.skfn_current) ?? -Infinity) - (Sum(b.skfn_current) ?? -Infinity))
+        result.sort((a, b) => (score(a) ?? -Infinity) - (score(b) ?? -Infinity))
         break
       case "이름 (가나다순)":
         result.sort((a, b) => (a.employee_name ?? "").localeCompare(b.employee_name ?? "", "ko"))

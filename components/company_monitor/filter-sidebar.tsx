@@ -192,7 +192,7 @@ export function FilterSidebar({
           />
 
           <FilterDropdown
-            label="이전 지원"
+            label="이전 지원 여부"
             icon={<FileText className="h-4 w-4 text-slate-500" />}
             options={FILTER_OPTIONS.previousApplications}
             selectedValues={currentFilters.previousApplications || []}

@@ -6,26 +6,6 @@ import { pool } from "@/lib/db";
 import { getUserFromSession } from "@/lib/session";
 import { v4 as uuidv4 } from "uuid";
 
-// DB Row 타입(스키마 그대로; timestamp는 예약어라 AS ts)
-type legacy_EmployeeRow = {
-  employee_id: string;           // char(9)
-  employee_name: string | null;  // varchar(5)
-  age: bigint | null;            // varchar(10)
-  age_category: string | null;   // varchar(10)
-  gender: string | null;         // char(2)
-  location: string | null;       // text
-  education: string | null;      // varchar(20)
-  career: string | null;         // varchar(10)
-  job: string | null;            // text
-  skills_current: string | null; // text (쉼표/줄바꿈 구분 가정)
-  skfn_current: string | null;
-  work_location: string | null;  // text
-  hope_salary: string | null;    // text
-  skills_past: string | null;
-  skfn_past: string | null;
-  ts: string | null;                      // "timestamp" AS ts
-};
-
 type EmployeeRow = {
   posting_id: string | null;
   posting_title_j: string | null;
@@ -47,6 +27,7 @@ type EmployeeRow = {
   posting_id_all: string | null;
   skills_past: string | null;
   skfn_past: string | null;
+  last_process: string | null;
 };
 
 const toISO = (v: unknown): string | null => {
@@ -65,27 +46,7 @@ const toISO = (v: unknown): string | null => {
 };
 
 // 페이지에서 쓰는 Candidate 형태에 맞춰 매핑
-function toCandidate(r: EmployeeRow) {
-  // skills text -> string[]
-  const skillStack =
-    (r.skills_current ?? "")
-      .split(/[,\n;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-  // career/ job 텍스트로 레벨 추정(없으면 Junior)
-  const base = `${r.career ?? ""} ${r.job_category_kor ?? ""}`;
-  const skillLevel =
-    /senior/i.test(base) ? "Senior" :
-    /mid/i.test(base)    ? "Mid"    :
-                           "Junior";
-
-  // 경험표시: career 우선, 없으면 age를 연차처럼 표시(원하는대로 바꿔도 됨)
-  const experience =
-    r.career?.trim() ||
-    (r.age && /^\d+$/.test(String(r.age)) ? `${String(r.age)} yrs` : "") ||
-    "";
-
+function toCandidate(r: any) {
   return {
     id: uuidv4(),
     posting_id: r.posting_id ?? "",
@@ -98,12 +59,13 @@ function toCandidate(r: EmployeeRow) {
     gender: r.gender ?? "",
     education: r.education ?? "",
     career: r.career ?? "",
-    skills_current: r.skills_current?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
-    skfn_current: r.skfn_current?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
+    skills_current: r.skills_past?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
+    skfn_current: r.skfn_past?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
     posting_id_all: r.posting_id_all,
-    skills_past: r.skills_past?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
-    skfn_past: r.skfn_past?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
+    skills_past: r.skills_p2?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
+    skfn_past: r.skfn_p2?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
     isBookmarked: false,
+    last_process: r.last_process?.trim().split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean) ?? [],
     createdAt: "",
   };
 }
@@ -141,7 +103,7 @@ export async function GET(req: Request) {
     const whereSQL = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
     let sql = `
       SELECT *
-      FROM gold.gld_company_hiring
+      FROM gold.gld_company_chayongpit_hiring
       ${whereSQL}
       ORDER BY employee_name ASC, employee_id ASC, job_category_kor ASC
     `;

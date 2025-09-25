@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FilterPanel } from "@/components/employee_roadmap/filter-panel"
-import { IntegratedCareerChart } from "@/components/employee_roadmap/integrated-career-chart"
-import { SimilarProfiles } from "@/components/employee_roadmap/similar-profiles"
-import { TrendingSkills } from "@/components/employee_roadmap/trending-skills"
-import { RoadmapLinks } from "@/components/employee_roadmap/roadmap-links"
-import { PersonalSkills } from "@/components/employee_roadmap/personal-skills"
+import { FilterPanel } from "@/components/employee_skillfit/filter-panel"
+import { IntegratedCareerChart } from "@/components/employee_skillfit/integrated-career-chart"
+import { SimilarProfiles } from "@/components/employee_skillfit/similar-profiles"
+import { TrendingSkills } from "@/components/employee_skillfit/trending-skills"
+import { RoadmapLinks } from "@/components/employee_skillfit/roadmap-links"
+import { PersonalSkills } from "@/components/employee_skillfit/personal-skills"
 
 export function CareerDashboard() {
   const [filters, setFilters] = useState({
